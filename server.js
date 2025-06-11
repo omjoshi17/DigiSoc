@@ -11,6 +11,11 @@ const visit_collection = require("./models/visitModel");
 const db = require(__dirname+'/config/db');
 const date = require(__dirname+'/date/date');
 
+
+
+
+
+
 // Access environment variables
 dotenv.config();
 const stripe = require('stripe')(process.env.SECRET_KEY);
@@ -40,6 +45,30 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 db.connectDB()
+
+const http = require('http');
+const server = http.createServer(app);
+
+const { Server } = require('socket.io');
+const io = new Server(server);
+const onlineResidents = {};
+// Socket.IO logic here...
+io.on('connection', (socket) => {
+  console.log("User connected:", socket.id);
+
+  socket.on("registerResident", (flatNumber) => {
+    onlineResidents[flatNumber] = socket.id;
+  });
+
+  socket.on("disconnect", () => {
+    for (const [flat, id] of Object.entries(onlineResidents)) {
+      if (id === socket.id) {
+        delete onlineResidents[flat];
+        break;
+      }
+    }
+  });
+});
 
 app.get("/", async (req,res) => {
 	// Track page visits + users & societies registered
@@ -80,6 +109,7 @@ app.get("/login", (req,res) => {
 app.get("/signup", (req,res) => {
     society_collection.Society.find()
         .then(societies => {
+            console.log(societies.map(s => s.societyName));
             res.render("signup", {societies});
         })
         .catch(err => {
@@ -95,6 +125,9 @@ app.get("/register", (req,res) => {
 app.get("/home", (req,res) => {
 	if(req.isAuthenticated()){
 		// Conditionally render home as per user validation status
+        if(req.user.isGuard == true){
+            res.redirect("/guardHomePage");
+        } else{
 		if(req.user.validation=='approved'){
 			res.render("home");
 		} else if(req.user.validation=='applied') {
@@ -113,7 +146,7 @@ app.get("/home", (req,res) => {
                 'Please contact the society administrator for more details.' +
 				'You can edit the request and apply again.'
 			});
-		}
+		}}
 	} else {
 		res.redirect("/login");
 	}
@@ -325,6 +358,10 @@ app.get("/editBill", (req,res) => {
     }
 })
 
+app.get("/downloadBill",(req,res) =>{
+    res.render("downloadBill");
+})
+
 app.get("/helpdesk",(req,res) => {
     if(req.isAuthenticated() && req.user.validation=='approved') {
         // Conditionally render user/admin helpdesk
@@ -343,14 +380,27 @@ app.get("/helpdesk",(req,res) => {
                     res.status(500).send("Server error");
                 });
         } else {
+            user_collection.User.find({
+                $and: [
+                    {"societyName": req.user.societyName}, 
+                    {"validation": "approved"},
+                    
+                ]
+            }).then(foundUsers => {
+                res.render("helpdesk", {users: foundUsers,mainUser : req.user});
+            })
+            .catch(err => {
+                console.error(err);
+                res.status(500).send("Server error");
+            });
             // Check if no complaint is present
-            if(!req.user.complaints.length){
-                req.user.complaints = [{
-                    'category': 'You have not raised any complaint',
-                    'description': 'You can raise complaints and track their resolution by facility manager.'
-                }];
-            }
-            res.render("helpdesk", {complaints: req.user.complaints});
+            // if(!req.user.complaints.length){
+            //     req.user.complaints = [{
+            //         'category': 'You have not raised any complaint',
+            //         'description': 'You can raise complaints and track their resolution by facility manager.'
+            //     }];
+            // }
+            // res.render("helpdesk", {complaints: req.user.complaints,user:req.user});
         }
     } else {
         res.redirect("/login");
@@ -364,6 +414,18 @@ app.get("/complaint",(req,res) => {
 		res.redirect("/login");
 	}
 })
+
+app.post("/approveResident",(req,res) => {
+	const user_id = Object.keys(req.body.validate)[0]
+	const validate_state = Object.values(req.body.validate)[0]
+	user_collection.User.updateOne(
+		{_id:user_id},
+		{ $set: {
+			validation: validate_state
+		}}
+	).then(() => res.redirect("/residents"))
+})
+
 
 app.get("/contacts",(req,res) => {
     if(req.isAuthenticated() && req.user.validation=='approved'){
@@ -446,9 +508,309 @@ app.get("/editProfile", (req,res) => {
     }
 })
 
+app.get("/registerOption",(req,res)=>{
+    res.render("registerOption");
+})
+//gaurd 
+
+app.get("/guardRegister",(req,res) => {
+    society_collection.Society.find()
+        .then(societies => {
+            // console.log(societies.map(s => s.societyName));
+            res.render("guardRegister", {societies});
+        })
+        .catch(err => {
+            console.error(err);
+            res.status(500).send("Server error");
+        });
+})
+
+app.post("/guardRegister", async (req,res) => {
+    try {
+        // Signup only if society is created
+        const foundSociety = await society_collection.Society.findOne({societyName: req.body.societyName});
+        
+        if(foundSociety) {
+            const user = await user_collection.User.register(
+                {
+                    username: req.body.username,
+                    societyName: req.body.societyName,
+                    flatNumber: req.body.flatNumber,
+                    firstName: req.body.firstName,
+                    lastName: req.body.lastName,
+                    phoneNumber: req.body.phoneNumber,
+                    isGuard:true
+                },
+                req.body.password
+            );
+
+            await new Promise((resolve, reject) => {
+                req.login(user, (err) => {
+                    if (err) return reject(err);
+                    resolve();
+                });
+            });
+            
+            res.redirect("/guardHomePage");
+        } else {
+            const failureMessage = "Sorry, society is not registered, Please double-check society name.";
+            const hrefLink = "/signup";
+            const secondaryMessage = "Society not registered?";
+            const hrefSecondaryLink = "/register";
+            const secondaryButton = "Register Society";
+            res.render("failure", {
+                message: failureMessage,
+                href: hrefLink,
+                messageSecondary: secondaryMessage,
+                hrefSecondary: hrefSecondaryLink,
+                buttonSecondary: secondaryButton
+            });
+        }
+    } catch(err) {
+        console.error(err);
+        const failureMessage = "Sorry, this email address is not available. Please choose a different address.";
+        const hrefLink = "/signup";
+        const secondaryMessage = "Society not registered?";
+        const hrefSecondaryLink = "/register";
+        const secondaryButton = "Register Society";
+        res.render("failure", {
+            message: failureMessage,
+            href: hrefLink,
+            messageSecondary: secondaryMessage,
+            hrefSecondary: hrefSecondaryLink,
+            buttonSecondary: secondaryButton
+        });
+    }
+});
+
+app.get("/guardHomePage",async(req,res) => {
+    
+    
+    if(req.isAuthenticated() && req.user.validation=='approved' && req.user.isGuard == true){
+        try {
+            
+            const userSocietyName = req.user.societyName;
+            
+            const allSocietyUsers = await user_collection.User.find({
+              societyName: userSocietyName,
+            });
+
+            const foundUsers = [];
+
+            allSocietyUsers.forEach((user) => {
+              if (user.validation === "approved") {
+                foundUsers.push(user);
+              } 
+            });
+            
+            res.render("guardHomePage", {
+                societyResidents: foundUsers,
+                societyName: userSocietyName,
+            });
+
+            req.session.seenApprovedGuest = true;
+        } catch(err) {
+            console.error(err);
+            res.status(500).send("Server error");
+        }
+    } else {
+        res.redirect("/login");
+    }
+})
+
+app.get("/sendNote", async (req, res) => {
+    const {id} = req.query;
+   
+    try {
+      const resident = await user_collection.User.findOne({
+        _id:id
+      });
+     
+      if (!resident) {
+        return res.status(404).send("Resident not found");
+      }
+      
+      // Render with resident data
+      res.render("guestArrivalForm", { resident });
+  
+    } catch (err) {
+      console.error(err);
+      res.status(500).send("Server Error");
+    }
+  });
+  
+
+app.post("/guestArrivalNotification", (req,res) => {
+    let {residentId} = req.body;
+    console.log(residentId);
+    user_collection.User.findOne({_id:residentId })
+        .then(foundUser => {
+            if(foundUser){
+                const guest = {
+                    'date': date.dateString,
+                    'guestName': req.body.guestName,
+                    'details': req.body.details,
+                    'approved':"pending"
+                };
+                foundUser.guests.push(guest);
+                return foundUser.save()
+                    .then(() => {
+                        console.log(foundUser);
+                        io.to(foundUser.flatNumber).emit("guestRequest", {
+                            guestName: "John Doe"
+                          });
+                          
+                        res.redirect("/guardHomePage");
+                    });
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            res.status(500).send("Server error");
+        });
+})
+
+app.get("/guests", async (req, res) => {
+    if (req.isAuthenticated() && req.user.validation === 'approved') {
+      try {
+        // Declare foundGuests array
+        const foundGuests = [];
+  
+        // Make sure req.user.guests exists and is an array
+        if (Array.isArray(req.user.guests)) {
+          req.user.guests.forEach((guest) => {
+            if (guest.approved === "pending") {
+              foundGuests.push(guest);
+            }
+          });
+        }
+        
+        res.render("guests", {
+          guestsArrived: foundGuests,
+          user:req.user
+        });
+  
+      } catch (err) {
+        console.error(err);
+        res.status(500).send("Server error");
+      }
+    } else {
+      res.redirect("/login");
+    }
+  });
+  
+app.get("/deleteGuests", async(req,res) => {
+
+    await user_collection.User.updateOne(
+        { firstName: "Diya" },
+        { $set: { guests: [] } }
+      );
+});
+
+app.post("/approveGuest",(req,res) => {
+	const user_id = req.user._id;
+    const guest_name = req.body.guestname;
+    console.log("id of the user is ",user_id);
+    console.log(guest_name);
+    if(req.body.status === "approved"){
+	user_collection.User.updateOne(
+        
+        { _id: user_id, "guests.guestName": guest_name }, // Match the guest inside the array
+        { $set: { "guests.$.approved": "approved",
+            "guests.$.approvedAt": new Date()
+         } }       // Use positional operator to set status
+    ).then(() => res.redirect("/guests"))
+    }
+    if(req.body.status === "declined"){
+        user_collection.User.updateOne(
+            
+            { _id: user_id, "guests.guestName": guest_name }, // Match the guest inside the array
+            { $set: { "guests.$.approved": "declined",
+                "guests.$.approvedAt": new Date()
+             } }       // Use positional operator to set status
+        ).then(() => res.redirect("/guests"))
+        }
+});
+
+app.get("/approvedGuestList",async(req,res)=>{
+    if(req.isAuthenticated() && req.user.validation=='approved' && req.user.isGuard == true){
+        try {
+            
+            const userSocietyName = req.user.societyName;
+            
+            const allSocietyUsers = await user_collection.User.find({
+              societyName: userSocietyName,
+            });
+
+            const foundUsers = [];
+
+            allSocietyUsers.forEach((user) => {
+              if (user.validation === "approved") {
+                foundUsers.push(user);
+              } 
+            });
+            
+            res.render("approvedGuestList", {
+                societyResidents: foundUsers,
+                societyName: userSocietyName,
+            });
+
+            
+        } catch(err) {
+            console.error(err);
+            res.status(500).send("Server error");
+        }
+    } else {
+        res.redirect("/login");
+    }
+});
+
+app.get("/guestVisited", async (req, res) => {
+    const { id, guestname } = req.query;
+    
+    try {
+        const updateResult = await user_collection.User.updateOne(
+            { _id: id },
+            { $pull: { guests: { guestName: guestname } } }
+          );
+      
+          if (updateResult.modifiedCount === 1) {
+            res.redirect("/approvedGuestList");
+          } else {
+            res.status(404).send("Guest not found or already deleted");
+          }
+  
+      
+    } catch (err) {
+      console.error(err);
+      res.status(500).send("Server Error");
+    }
+  });
+  
+  
+
+app.get("/updateFlatNum",async(req,res)=>{
+    const result = await user_collection.User.updateMany(
+        { isGuard: true },
+        { $set: { flatNumber: '000' } }
+      );
+      
+      console.log(`${result.modifiedCount} users updated.`);
+      
+})
+
 app.get('/success', async (req, res) => {
     try {
+        
         const session = await stripe.checkout.sessions.retrieve(req.query.session_id);
+        
+        if (session.customer) {
+            const customer = await stripe.customers.retrieve(session.customer);
+            // Do something with the customer
+        } else {
+            // Use session.customer_email instead
+            console.log('Customer not created. Email:', session.customer_email);
+        }
         const customer = await stripe.customers.retrieve(session.customer);
         
         const foundUser = await user_collection.User.findOne({_id: req.user.id});
@@ -471,41 +833,36 @@ app.get('/success', async (req, res) => {
 });
 
 app.post('/checkout-session', async (req, res) => {
-	const session = await stripe.checkout.sessions.create({
-	  payment_method_types: ['card'],
-	  line_items: [
-		{
-		  price_data: {
-			currency: 'inr',
-			product_data: {
-			  name: req.user.societyName,
-			  images: ['https://www.flaticon.com/svg/vstatic/svg/3800/3800518.svg?token=exp=1615226542~hmac=7b5bcc7eceab928716515ebf044f16cd'],
-			},
-			unit_amount: req.user.makePayment*100,
-		  },
-		  quantity: 1,
-		},
-	  ],
-	  mode: 'payment',
-	//   success_url: "http://localhost:3000/success?session_id={CHECKOUT_SESSION_ID}",
-	//   cancel_url: "http://localhost:3000/bill",
-	  success_url: "https://esociety-fdbd.onrender.com/success?session_id={CHECKOUT_SESSION_ID}",
-	  cancel_url: "https://esociety-fdbd.onrender.com/bill",
-	});
-  
-	res.json({ id: session.id });
-  });
+	try {
+		const session = await stripe.checkout.sessions.create({
+			payment_method_types: ['card'],
+			mode: 'payment',
+			customer_email: req.user.email, // Optional: req.user.email
+            customer_creation: 'always',
+			line_items: [
+				{
+					price_data: {
+						currency: 'inr',
+						product_data: {
+							name: req.user.societyName,
+							images: ['https://www.flaticon.com/svg/vstatic/svg/3800/3800518.svg'],
+						},
+						unit_amount: req.user.makePayment * 100, // make sure it's a number
+					},
+					quantity: 1,
+				},
+			],
+			success_url: 'http://localhost:3000/success?session_id={CHECKOUT_SESSION_ID}',
+			cancel_url: 'http://localhost:3000/bill',
+		});
 
-  app.post("/approveResident",(req,res) => {
-	const user_id = Object.keys(req.body.validate)[0]
-	const validate_state = Object.values(req.body.validate)[0]
-	user_collection.User.updateOne(
-		{_id:user_id},
-		{ $set: {
-			validation: validate_state
-		}}
-	).then(() => res.redirect("/residents"))
-})
+		res.json({ id: session.id });
+	} catch (err) {
+		console.error('Stripe session creation error:', err);
+		res.status(500).json({ error: err.message });
+	}
+});
+
 
 app.post("/complaint", (req,res) => {
     user_collection.User.findById(req.user.id)
@@ -530,7 +887,7 @@ app.post("/complaint", (req,res) => {
             res.status(500).send("Server error");
         });
 })
-
+  
 app.post("/closeTicket", (req,res) => {
     const user_id = Object.keys(req.body.ticket)[0];
     const ticket_index = Object.values(req.body.ticket)[0];
@@ -540,17 +897,20 @@ app.post("/closeTicket", (req,res) => {
     user_collection.User.findById(user_id)
         .then(foundUser => {
             if(foundUser){
+                const complaintToDelete = foundUser.complaints[ticket_index];
+
                 return user_collection.User.updateOne(
-                    {_id: user_id},
-                    { $set: {
-                        [ticket]: {
-                            status: 'close',
-                            'date': foundUser.complaints[ticket_index].date,
-                            'category': foundUser.complaints[ticket_index].category,
-                            'type': foundUser.complaints[ticket_index].type,
-                            'description': foundUser.complaints[ticket_index].description
+                    { _id: user_id },
+                    {
+                        $pull: {
+                            complaints: {
+                                date: complaintToDelete.date,
+                                category: complaintToDelete.category,
+                                type: complaintToDelete.type,
+                                description: complaintToDelete.description
+                            }
                         }
-                    }}
+                    }
                 )
                     .then(() => {
                         res.redirect("/helpdesk");
@@ -836,7 +1196,11 @@ app.get("/health", (req, res) => {
     res.status(200).send("Server is running");
 });
 
-app.listen(
-    process.env.PORT || 3000, 
-    console.log("Server started")
-);
+// app.listen(
+//     process.env.PORT || 3000, 
+//     console.log("Server started")
+// );
+
+server.listen(3000, () => {
+    console.log("Server running on port 3000 with WebSockets");
+  });
