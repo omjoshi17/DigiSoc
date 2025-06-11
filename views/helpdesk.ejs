@@ -1,0 +1,76 @@
+<!-- View complaint -->
+<%- include('partials/header') %>
+
+<link rel="stylesheet" href="/styles/view-complaint.css">
+
+<div class="view-complaint-wrapper">
+  <row>
+    <col-4>
+      <a href="/complaint" class="btn btn-danger btn-md text-uppercase center raise-btn" style="margin-bottom: 10px;">
+        Raise Complaint
+      </a>
+    </col-4>
+  </row>
+  <div class="container container-profile">
+    
+    <div class="row">
+      <h2 class="complaint-title">Personal complaints</h2>
+      <div class="col">
+        <div class="card card-profile my-5" style="margin-bottom: 30px; margin-top: 0px;">
+          <div class="card-body complaint-card-body">
+            <div>
+              <% if(!mainUser.complaints || mainUser.complaints.length === 0){ %>
+                <i class="fas fa-plus-circle"></i> <b>No complaints raised by you</b>
+              <% } %>
+              
+              <% mainUser.complaints.forEach((complaint,index) => { %>
+                <% if(complaint.type==='Personal'){ %>
+                  <i class="fas fa-plus-circle"></i> <b><%= complaint.category %></b>
+                  <p style="padding-left: 20px; color: grey;">
+                    <%= complaint.date %> - <%= complaint.type %><br>
+                    Raised by <%=mainUser.firstName%> <%=mainUser.lastName%> - <%=mainUser.flatNumber%>
+                  </p>
+                  <p style="padding-left: 20px"><%= complaint.description %></p>
+                  <% if(mainUser.complaints[index+1]){ %>
+                    <hr class="my-4">
+                  <% } %>
+                <% } %>
+              <% }) %>
+              
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <h2 class="complaint-title">Community complaints</h2>
+      <div class="col">
+        <div class="card card-profile my-5" style="margin-top: 0px;">
+          <div class="card-body complaint-card-body">
+            <div>
+              <% users.forEach((user) => { %>
+              <% user.complaints.forEach((complaint,index) => { %>
+                <% if(complaint.type==='Community'){ %>
+                  <i class="fas fa-plus-circle"></i> <b><%= complaint.category %></b>
+                  <p style="padding-left: 20px; color: grey;">
+                    <%= complaint.date %> - <%= complaint.type %><br>
+                    Raised by <%=user.firstName%> <%=user.lastName%> - <%=user.flatNumber%>
+                  </p>
+                  <p style="padding-left: 20px"><%= complaint.description %></p>
+                  <% if(user.complaints[index+1]){ %>
+                    <hr class="my-4">
+                  <% } %>
+                <% } %>
+              <% }) %>
+              <% }) %>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      
+    </div>    
+  </div>
+</div>
+
+<%- include('partials/footer') %>

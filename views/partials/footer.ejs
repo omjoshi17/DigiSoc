@@ -1,0 +1,67 @@
+<!-- Footer content -->
+  
+  
+  <script type="text/javascript">
+    $(document).ready(function () {
+      let url = window.location;
+      $('ul.nav a').filter(function() {
+        return this.href == url;
+      }).parent().addClass('active');
+    });
+  </script> 
+</body>
+</div>
+<footer>
+  <div class="container home-container footer-head">
+    <div class="box">
+      <h2 id="text1">About Us</h2>
+      <p id="text2">
+        Community management app, capable of simplifying everyday living for your housing society. 
+        Manage accounts and payments, resolve complaints and keep the community up-to-date with all 
+        that’s going on in the society.
+      </p>
+    </div>
+    <div class="box">
+      <h2>Get In Touch</h2>
+      <div class="subcategories">
+        <p id="text2">If you have any questions, please feel free to drop us a mail.</p>
+        <a href="mailto:avpril260604@gmail.com" target="_blank" style="font-size: 14px;">
+          <i class="fas fa-paper-plane"></i> Send Message
+        </a>
+      </div>
+    </div>
+  </div>
+  
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+window.onload = function () {
+    document.getElementById("download-btn")
+        .addEventListener("click", () => {
+            const invoice = document.getElementById("print-content");
+            var opt = {
+                margin: 1,
+                filename: 'bill.pdf',
+                image: { type: 'jpeg', quality: 1 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+            html2pdf().from(invoice).set(opt).save();
+        });
+
+    document.getElementById("download-receipt")
+        .addEventListener("click", () => {
+            const receipt = document.getElementById("receipt");
+            var opt = {
+                margin: 1,
+                filename: 'receipt.pdf',
+                image: { type: 'jpeg', quality: 1 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+            html2pdf().from(receipt).set(opt).save();
+        });
+}
+</script>
+
+</html>  

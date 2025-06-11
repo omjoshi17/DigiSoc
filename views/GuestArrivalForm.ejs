@@ -1,0 +1,30 @@
+<!-- Guest Arrival Request -->
+<%- include('partials/guardHeader') %>
+
+    <div class="container" style="min-width:80%; margin:auto;">
+        <div class="row col-md-6 col-md-offset-3">
+            <div class="panel panel-primary">
+                <div class="panel-heading text-center">
+                    <h4>Guest Arrival</h4>
+                </div>
+                <div class="panel-body">
+                    <form action="/guestArrivalNotification" method="POST">
+                        <input type="hidden"  name="residentId" value="<%= resident._id %>" >
+                        <div class="form-group">
+                            <label for="comment">Visitors Name</label>
+                            <input name="guestName" class="form-control" type="text" id="guestName" required></input>
+                            <br>
+                            <label for="comment">Details</label>
+                            <textarea name="details" class="form-control" type="text" rows="7" id="comment" required
+                                placeholder="dilivery / guests / serviceman"></textarea>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Send</button>
+                        <a href="/guardHomePage" class="btn btn-danger">Cancel</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <%- include('partials/footer') %>

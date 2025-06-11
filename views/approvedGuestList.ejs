@@ -1,0 +1,54 @@
+<%- include('partials/guardHeader') %>
+<div style="padding:4%; padding-top:0%; font-family:sans-serif;font-size: 15px;">
+    
+  <div class="flex-container">
+    <% societyResidents.forEach((resident)=> { %>
+      <% if(resident.isGuard == false){ %>
+      <!-- <a href="/sendNote"> -->
+        <% resident.guests.forEach((guest) => { %>
+          <% if(guest.approved === "approved"){ %>
+            <div onclick="window.location.href='/guestVisited?id=<%= resident._id %>&guestname=<%= guest.guestName %>'" style="cursor: pointer;">
+              <ul class="list-group zoom">
+                <li class="list-group-item flat-number" style="background-color: green;">
+                  <i class="fas fa-house-user"></i>
+                  <%= resident.flatNumber %>
+                </li>
+                <li class="list-group-item flat-owner">
+                  Owner : 
+                  <%= resident.firstName %> <%= resident.lastName %>
+                </li>
+                <li class="list-group-item">
+                    <b>Guest : 
+                  <%= guest.guestName %></b>
+                </li>
+              </ul>
+            </div>
+          <% } %>
+          <% if(guest.approved === "declined"){ %>
+            <div onclick="window.location.href='/guestVisited?id=<%= resident._id %>&guestname=<%= guest.guestName %>'" style="cursor: pointer;">
+              <ul class="list-group zoom">
+                <li class="list-group-item flat-number" style="background-color: rgb(233, 20, 20);">
+                  <i class="fas fa-house-user"></i>
+                  <%= resident.flatNumber %>
+                </li>
+                <li class="list-group-item flat-owner">
+                  Owner : 
+                  <%= resident.firstName %> <%= resident.lastName %>
+                </li>
+                <li class="list-group-item">
+                  Guest : 
+                  <%= guest.guestName %>
+                </li>
+              </ul>
+            </div>
+          <% } %>
+        <% }) %>
+           
+     
+      <!-- </a> -->
+      <% } %>
+  <% }) %>
+</div>
+
+
+<%- include('partials/footer') %>
