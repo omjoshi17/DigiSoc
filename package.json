@@ -1,5 +1,5 @@
 {
-  "name": "e-society",
+  "name": "HousingHive",
   "version": "1.1.0",
   "description": "Community management app",
   "main": "server.js",
@@ -12,14 +12,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/abhijeetpandit7/E-Society.git"
+    "url": "git+https://github.com/omjoshi17/HousingHive.git"
   },
-  "author": "Abhijeet Pandit",
+  "author": "Om Joshi",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/abhijeetpandit7/E-Society/issues"
+    "url": "https://github.com/omjoshi17/HousingHive/issues"
   },
-  "homepage": "https://github.com/abhijeetpandit7/E-Society#readme",
+  "homepage": "https://github.com/omjoshi17/HousingHive#readme",
   "dependencies": {
     "connect-mongo": "^5.1.0",
     "dotenv": "^8.2.0",
