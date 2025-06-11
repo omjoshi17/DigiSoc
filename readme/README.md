@@ -1,4 +1,4 @@
-# [DigiSoc](https://esociety-fdbd.onrender.com) - Community Management System
+# HousingHive- Community Management System
 
 E-Society is a modular, API-Centric, and multi-tenant Community Management System. 
 It is capable of simplifying everyday living for your housing society. 
