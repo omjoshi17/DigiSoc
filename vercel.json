@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "name": "e-society",
+  "name": "HousingHive",
   "builds": [
     { "src": "./server.js", "use": "@vercel/node" }
   ],
